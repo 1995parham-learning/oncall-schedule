@@ -1,0 +1,33 @@
+# Create a new schedule for Team T1 (Saturday)
+POST 127.0.0.1:1373/schedule
+content-type: application/json
+
+{
+  "name": "S1",
+  "team": "T1",
+  "members": ["M1", "M2"],
+  "days": ["saturday"],
+  "start": "8:00AM",
+  "end": "8:00PM"
+}
+
+###
+
+# Create a new schedule for Team T1 (Sunday)
+POST 127.0.0.1:1373/schedule
+content-type: application/json
+
+{
+  "name": "S2",
+  "team": "T1",
+  "members": ["M3", "M4"],
+  "days": ["sunday"],
+  "start": "8:00AM",
+  "end": "8:00PM"
+}
+
+###
+
+# Read schedule for T1
+GET 127.0.0.1:1373/schedule?team=T1&time=2025-04-26T09:00:00Z
+content-type: application/json
