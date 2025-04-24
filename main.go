@@ -17,20 +17,20 @@ type Team struct {
 }
 
 type Schedule struct {
-	Name string
+	Name    string
 	Members []string
-	Days []time.Weekday
-	Start time.Time
-	End time.Time
+	Days    []time.Weekday
+	Start   time.Time
+	End     time.Time
 }
 
 type Request struct {
-	Name  string   `json:"name,omitempty"`
-	Team string `json:"team"`
-	Members  []string   `json:"members"`
-	Days  []string `json:"days"`
-	Start string   `json:"start"`
-	End   string   `json:"end"`
+	Name    string   `json:"name,omitempty"`
+	Team    string   `json:"team"`
+	Members []string `json:"members"`
+	Days    []string `json:"days"`
+	Start   string   `json:"start"`
+	End     string   `json:"end"`
 }
 
 func createSchedule(c echo.Context) error {
@@ -97,7 +97,7 @@ func getSchedule(c echo.Context) error {
 	if !ok {
 		return echo.ErrNotFound
 	}
-	
+
 	for _, sc := range sc.Schedules {
 		if !slices.Contains(sc.Days, askTime.Weekday()) {
 			continue
@@ -114,7 +114,7 @@ func getSchedule(c echo.Context) error {
 
 		return c.JSON(http.StatusOK, sc.Members)
 	}
-	
+
 	return echo.ErrNotFound
 }
 
