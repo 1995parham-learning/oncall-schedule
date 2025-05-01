@@ -42,19 +42,19 @@ func createSchedule(c echo.Context) error {
 	}
 
 	for _, d := range req.Days {
-		if strings.EqualFold(d, time.Saturday.String()) {
-			schedule.Days = append(schedule.Days, time.Saturday)
-			continue
+		found := false
+
+		for wd := time.Sunday; wd <= time.Saturday; wd++ {
+			if strings.EqualFold(d, wd.String()) {
+				schedule.Days = append(schedule.Days, wd)
+				found = true
+				break
+			}
 		}
 
-		if strings.EqualFold(d, time.Sunday.String()) {
-			schedule.Days = append(schedule.Days, time.Sunday)
-			continue
+		if !found {
+			return echo.ErrBadRequest
 		}
-
-		// TODO
-
-		return echo.ErrBadRequest
 	}
 
 	start, err := time.Parse(time.Kitchen, req.Start)
