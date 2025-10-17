@@ -2,12 +2,16 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/knadh/koanf/parsers/yaml"
-	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 )
+
+const prefix = "ONCALL_"
 
 // Config holds the application configuration.
 type Config struct {
@@ -30,12 +34,23 @@ func Load() (*Config, error) {
 		fmt.Printf("warning: config file not found: %v\n", err)
 	}
 
-	// Load environment variables with ONCALL_ prefix
-	// Environment variables like ONCALL_SERVER_PORT will override config.yaml
-	if err := k.Load(env.Provider("ONCALL_", ".", func(s string) string {
-		return s
-	}), nil); err != nil {
-		return nil, fmt.Errorf("error loading environment variables: %w", err)
+	// load environment variables
+	if err := k.Load(
+		// replace __ with . in environment variables so you can reference field a in struct b
+		// as a__b.
+		env.Provider(".", env.Opt{
+			Prefix: prefix,
+			TransformFunc: func(source string, value string) (string, any) {
+				base := strings.ToLower(strings.TrimPrefix(source, prefix))
+
+				return strings.ReplaceAll(base, "__", "."), value
+			},
+			EnvironFunc: os.Environ,
+		},
+		),
+		nil,
+	); err != nil {
+		fmt.Printf("error loading environment variables: %s", err)
 	}
 
 	var cfg Config
