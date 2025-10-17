@@ -1,5 +1,7 @@
+### Successful Cases
+
 # Create a new schedule for Team T1 (Saturday)
-POST 127.0.0.1:1373/schedule
+POST http://127.0.0.1:1373/schedule
 Content-Type: application/json
 
 {
@@ -14,7 +16,7 @@ Content-Type: application/json
 ###
 
 # Create a new schedule for Team T1 (Sunday)
-POST 127.0.0.1:1373/schedule
+POST http://127.0.0.1:1373/schedule
 Content-Type: application/json
 
 {
@@ -28,6 +30,147 @@ Content-Type: application/json
 
 ###
 
-# Read schedule for T1
-GET 127.0.0.1:1373/schedule?team=T1&time=2025-04-26T09:00:00Z
+# Create a schedule with multiple days
+POST http://127.0.0.1:1373/schedule
 Content-Type: application/json
+
+{
+  "name": "Weekdays",
+  "team": "T2",
+  "members": ["M5", "M6", "M7"],
+  "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+  "start": "9:00AM",
+  "end": "5:00PM"
+}
+
+###
+
+# Read schedule for T1 on Saturday at 9:00 AM UTC
+# 2025-04-26 is a Saturday
+GET http://127.0.0.1:1373/schedule?team=T1&time=2025-04-26T09:00:00Z
+
+###
+
+# Read schedule for T1 on Sunday at 12:00 PM UTC
+# 2025-04-27 is a Sunday
+GET http://127.0.0.1:1373/schedule?team=T1&time=2025-04-27T12:00:00Z
+
+###
+
+# Read schedule for T2 on Monday at 10:00 AM UTC
+GET http://127.0.0.1:1373/schedule?team=T2&time=2025-04-28T10:00:00Z
+
+###
+
+### Validation Error Cases
+
+# Missing team field
+POST http://127.0.0.1:1373/schedule
+Content-Type: application/json
+
+{
+  "name": "Invalid",
+  "members": ["M1"],
+  "days": ["monday"],
+  "start": "9:00AM",
+  "end": "5:00PM"
+}
+
+###
+
+# Empty members array
+POST http://127.0.0.1:1373/schedule
+Content-Type: application/json
+
+{
+  "name": "Invalid",
+  "team": "T3",
+  "members": [],
+  "days": ["monday"],
+  "start": "9:00AM",
+  "end": "5:00PM"
+}
+
+###
+
+# Invalid day name
+POST http://127.0.0.1:1373/schedule
+Content-Type: application/json
+
+{
+  "name": "Invalid",
+  "team": "T3",
+  "members": ["M1"],
+  "days": ["notaday"],
+  "start": "9:00AM",
+  "end": "5:00PM"
+}
+
+###
+
+# Invalid time format
+POST http://127.0.0.1:1373/schedule
+Content-Type: application/json
+
+{
+  "name": "Invalid",
+  "team": "T3",
+  "members": ["M1"],
+  "days": ["monday"],
+  "start": "25:00",
+  "end": "5:00PM"
+}
+
+###
+
+# Start time after end time
+POST http://127.0.0.1:1373/schedule
+Content-Type: application/json
+
+{
+  "name": "Invalid",
+  "team": "T3",
+  "members": ["M1"],
+  "days": ["monday"],
+  "start": "5:00PM",
+  "end": "9:00AM"
+}
+
+###
+
+### Not Found Cases
+
+# Query non-existent team
+GET http://127.0.0.1:1373/schedule?team=NonExistent&time=2025-04-26T09:00:00Z
+
+###
+
+# Query existing team but wrong day
+GET http://127.0.0.1:1373/schedule?team=T1&time=2025-04-28T09:00:00Z
+
+###
+
+# Query existing team but outside time range (too early)
+GET http://127.0.0.1:1373/schedule?team=T1&time=2025-04-26T06:00:00Z
+
+###
+
+# Query existing team but outside time range (too late)
+GET http://127.0.0.1:1373/schedule?team=T1&time=2025-04-26T22:00:00Z
+
+###
+
+# Missing team query parameter
+GET http://127.0.0.1:1373/schedule?time=2025-04-26T09:00:00Z
+
+###
+
+# Missing time query parameter
+GET http://127.0.0.1:1373/schedule?team=T1
+
+###
+
+# Invalid time format in query
+GET http://127.0.0.1:1373/schedule?team=T1&time=not-a-date
+
+###
