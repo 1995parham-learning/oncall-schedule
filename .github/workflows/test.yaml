@@ -3,7 +3,15 @@ name: test
 on:
   - push
 jobs:
-  lint:
+  lint-kulala:
+    name: Kulala format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+      - run: npm install -g @mistweaverco/kulala-fmt
+      - run: kulala-fmt check api.http
+  lint-golang:
     name: lint
     runs-on: ubuntu-latest
     steps:
