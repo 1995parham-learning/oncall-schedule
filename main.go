@@ -1,131 +1,98 @@
 package main
 
 import (
-	"log"
-	"net/http"
-	"slices"
-	"strings"
-	"time"
+	"context"
+	"fmt"
 
+	"github.com/1995parham-learning/oncall-schedule/internal/config"
+	"github.com/1995parham-learning/oncall-schedule/internal/handler"
+	"github.com/1995parham-learning/oncall-schedule/internal/storage"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
-var storage map[string]Team
-
-type Team struct {
-	Schedules []Schedule
-}
-
-type Schedule struct {
-	Name    string
-	Members []string
-	Days    []time.Weekday
-	Start   time.Time
-	End     time.Time
-}
-
-type Request struct {
-	Name    string   `json:"name,omitempty"`
-	Team    string   `json:"team"`
-	Members []string `json:"members"`
-	Days    []string `json:"days"`
-	Start   string   `json:"start"`
-	End     string   `json:"end"`
-}
-
-func createSchedule(c echo.Context) error {
-	var req Request
-	var schedule Schedule
-
-	if err := c.Bind(&req); err != nil {
-		return echo.ErrBadRequest
-	}
-
-	for _, d := range req.Days {
-		found := false
-
-		for wd := time.Sunday; wd <= time.Saturday; wd++ {
-			if strings.EqualFold(d, wd.String()) {
-				schedule.Days = append(schedule.Days, wd)
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			return echo.ErrBadRequest
-		}
-	}
-
-	start, err := time.Parse(time.Kitchen, req.Start)
-	if err != nil {
-		return echo.ErrBadRequest
-	}
-	schedule.Start = start
-
-	end, err := time.Parse(time.Kitchen, req.End)
-	if err != nil {
-		return echo.ErrBadRequest
-	}
-	schedule.End = end
-
-	schedule.Name = req.Name
-	schedule.Members = req.Members
-
-	team := storage[req.Team]
-	team.Schedules = append(team.Schedules, schedule)
-	storage[req.Team] = team
-
-	log.Println(storage)
-
-	return c.NoContent(http.StatusCreated)
-}
-
-func getSchedule(c echo.Context) error {
-	team := c.QueryParam("team")
-	if team == "" {
-		return echo.ErrBadRequest
-	}
-
-	t := c.QueryParam("time")
-	askTime, err := time.Parse(time.RFC3339, t)
-	if err != nil {
-		return echo.ErrBadRequest
-	}
-
-	sc, ok := storage[team]
-	if !ok {
-		return echo.ErrNotFound
-	}
-
-	for _, sc := range sc.Schedules {
-		if !slices.Contains(sc.Days, askTime.Weekday()) {
-			continue
-		}
-
-		year, month, day := askTime.Date()
-
-		startTime := time.Date(year, month, day, sc.Start.Hour(), sc.Start.Minute(), 0, 0, time.UTC)
-		endTime := time.Date(year, month, day, sc.End.Hour(), sc.End.Minute(), 0, 0, time.UTC)
-
-		if !askTime.Before(endTime) || !askTime.After(startTime) {
-			continue
-		}
-
-		return c.JSON(http.StatusOK, sc.Members)
-	}
-
-	return echo.ErrNotFound
-}
-
 func main() {
-	storage = make(map[string]Team)
-	app := echo.New()
+	app := fx.New(
+		fx.Provide(
+			// Provide configuration
+			config.Load,
+			// Provide logger
+			zap.NewProduction,
+			// Provide storage
+			func() storage.Storage {
+				return storage.NewMemoryStorage()
+			},
+			// Provide handler
+			handler.New,
+			// Provide Echo server
+			newEchoServer,
+		),
+		fx.Invoke(registerRoutes),
+		fx.Invoke(startServer),
+	)
 
-	app.POST("/schedule", createSchedule)
-	app.GET("/schedule", getSchedule)
+	app.Run()
+}
 
-	if err := app.Start("0.0.0.0:1373"); err != nil {
-		log.Fatal(err)
-	}
+// newEchoServer creates a new Echo server with middleware.
+func newEchoServer(logger *zap.Logger) *echo.Echo {
+	e := echo.New()
+	e.HideBanner = true
+
+	// Add middleware
+	e.Use(middleware.RequestID())
+	e.Use(middleware.Recover())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogURI:    true,
+		LogStatus: true,
+		LogError:  true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			if v.Error != nil {
+				logger.Error("request failed",
+					zap.String("uri", v.URI),
+					zap.Int("status", v.Status),
+					zap.Error(v.Error),
+				)
+			} else {
+				logger.Info("request",
+					zap.String("uri", v.URI),
+					zap.Int("status", v.Status),
+				)
+			}
+			return nil
+		},
+	}))
+
+	return e
+}
+
+// registerRoutes registers all HTTP routes.
+func registerRoutes(e *echo.Echo, h *handler.Handler) {
+	e.POST("/schedule", h.CreateSchedule)
+	e.GET("/schedule", h.GetSchedule)
+}
+
+// startServer starts the HTTP server with graceful shutdown.
+func startServer(lc fx.Lifecycle, e *echo.Echo, cfg *config.Config, logger *zap.Logger) {
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			addr := fmt.Sprintf("%s:%d", cfg.Server.Address, cfg.Server.Port)
+			logger.Info("starting server", zap.String("address", addr))
+
+			// Start server in a goroutine
+			go func() {
+				if err := e.Start(addr); err != nil {
+					logger.Error("server failed", zap.Error(err))
+				}
+			}()
+
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			logger.Info("shutting down server")
+			return e.Shutdown(ctx)
+		},
+	})
 }
