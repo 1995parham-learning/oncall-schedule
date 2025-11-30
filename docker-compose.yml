@@ -1,0 +1,46 @@
+name: oncall-schedule
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: oncall-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: oncall
+      POSTGRES_PASSWORD: oncall
+      POSTGRES_DB: oncall
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    ports:
+      - target: 5432
+        published: 5432
+        protocol: tcp
+    volumes:
+      - type: volume
+        source: postgres_data
+        target: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oncall -d oncall"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - oncall-network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+networks:
+  oncall-network:
+    driver: bridge
+    name: oncall-network
+
+volumes:
+  postgres_data:
+    name: oncall-postgres-data
+    driver: local

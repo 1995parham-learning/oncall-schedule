@@ -15,13 +15,27 @@ const prefix = "ONCALL_"
 
 // Config holds the application configuration.
 type Config struct {
-	Server ServerConfig `koanf:"server"`
+	Server   ServerConfig   `koanf:"server"`
+	Database DatabaseConfig `koanf:"database"`
 }
 
 // ServerConfig holds the server configuration.
 type ServerConfig struct {
 	Address string `koanf:"address"`
 	Port    int    `koanf:"port"`
+}
+
+// DatabaseConfig holds the database configuration.
+type DatabaseConfig struct {
+	Host            string `koanf:"host"`
+	Port            int    `koanf:"port"`
+	User            string `koanf:"user"`
+	Password        string `koanf:"password"`
+	Database        string `koanf:"database"`
+	SSLMode         string `koanf:"ssl_mode"`
+	MaxConnections  int32  `koanf:"max_connections"`
+	MinConnections  int32  `koanf:"min_connections"`
+	MigrationsPath  string `koanf:"migrations_path"`
 }
 
 // Load loads configuration from file and environment variables.
@@ -64,6 +78,32 @@ func Load() (*Config, error) {
 	}
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 1373
+	}
+
+	// Database defaults
+	if cfg.Database.Host == "" {
+		cfg.Database.Host = "localhost"
+	}
+	if cfg.Database.Port == 0 {
+		cfg.Database.Port = 5432
+	}
+	if cfg.Database.User == "" {
+		cfg.Database.User = "oncall"
+	}
+	if cfg.Database.Database == "" {
+		cfg.Database.Database = "oncall"
+	}
+	if cfg.Database.SSLMode == "" {
+		cfg.Database.SSLMode = "disable"
+	}
+	if cfg.Database.MaxConnections == 0 {
+		cfg.Database.MaxConnections = 10
+	}
+	if cfg.Database.MinConnections == 0 {
+		cfg.Database.MinConnections = 2
+	}
+	if cfg.Database.MigrationsPath == "" {
+		cfg.Database.MigrationsPath = "migrations"
 	}
 
 	return &cfg, nil

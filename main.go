@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/1995parham-learning/oncall-schedule/internal/config"
+	"github.com/1995parham-learning/oncall-schedule/internal/db"
 	"github.com/1995parham-learning/oncall-schedule/internal/handler"
 	"github.com/1995parham-learning/oncall-schedule/internal/storage"
 	"github.com/labstack/echo/v4"
@@ -14,21 +16,55 @@ import (
 )
 
 func main() {
+	// Check if we should use database storage
+	useDatabase := os.Getenv("ONCALL_USE_DATABASE") != "false"
+
+	var providers []fx.Option
+
+	if useDatabase {
+		// Use PostgreSQL storage
+		providers = []fx.Option{
+			fx.Provide(
+				// Provide configuration
+				config.Load,
+				// Provide logger
+				zap.NewProduction,
+				// Provide Echo server
+				newEchoServer,
+			),
+			// Database module
+			db.Module,
+			fx.Provide(
+				// Provide PostgreSQL storage
+				func(database *db.DB, logger *zap.Logger) storage.Storage {
+					return storage.NewPostgresStorage(database, logger)
+				},
+				// Provide handler
+				handler.New,
+			),
+		}
+	} else {
+		// Use in-memory storage
+		providers = []fx.Option{
+			fx.Provide(
+				// Provide configuration
+				config.Load,
+				// Provide logger
+				zap.NewProduction,
+				// Provide in-memory storage
+				func() storage.Storage {
+					return storage.NewMemoryStorage()
+				},
+				// Provide handler
+				handler.New,
+				// Provide Echo server
+				newEchoServer,
+			),
+		}
+	}
+
 	app := fx.New(
-		fx.Provide(
-			// Provide configuration
-			config.Load,
-			// Provide logger
-			zap.NewProduction,
-			// Provide storage
-			func() storage.Storage {
-				return storage.NewMemoryStorage()
-			},
-			// Provide handler
-			handler.New,
-			// Provide Echo server
-			newEchoServer,
-		),
+		fx.Options(providers...),
 		fx.Invoke(registerRoutes),
 		fx.Invoke(startServer),
 	)

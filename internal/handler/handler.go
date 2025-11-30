@@ -86,7 +86,10 @@ func (h *Handler) CreateSchedule(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "start time must be before end time"})
 	}
 
-	h.storage.AddSchedule(req.Team, schedule)
+	if err := h.storage.AddSchedule(req.Team, schedule); err != nil {
+		h.logger.Error("failed to add schedule", zap.Error(err))
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to create schedule"})
+	}
 
 	h.logger.Info("schedule created",
 		zap.String("team", req.Team),
@@ -114,38 +117,25 @@ func (h *Handler) GetSchedule(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid time format, use RFC3339 format"})
 	}
 
-	teamData, ok := h.storage.GetTeam(team)
-	if !ok {
-		return c.JSON(http.StatusNotFound, ErrorResponse{Error: "team not found"})
+	// Use the new GetCurrentOncall method which returns the currently oncall person
+	oncall, found, err := h.storage.GetCurrentOncall(team, askTime)
+	if err != nil {
+		h.logger.Error("failed to get current oncall", zap.Error(err))
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to retrieve oncall information"})
 	}
 
-	// Find matching schedule - FIXED: Correct time comparison logic
-	for _, schedule := range teamData.Schedules {
-		// Check if the day matches
-		if !contains(schedule.Days, askTime.Weekday()) {
-			continue
-		}
-
-		// Construct times for comparison in the same timezone as askTime
-		year, month, day := askTime.Date()
-		loc := askTime.Location()
-
-		startTime := time.Date(year, month, day, schedule.Start.Hour(), schedule.Start.Minute(), 0, 0, loc)
-		endTime := time.Date(year, month, day, schedule.End.Hour(), schedule.End.Minute(), 0, 0, loc)
-
-		// FIXED: Correct logic - askTime should be after/equal start AND before/equal end
-		if (askTime.After(startTime) || askTime.Equal(startTime)) &&
-			(askTime.Before(endTime) || askTime.Equal(endTime)) {
-			h.logger.Info("schedule found",
-				zap.String("team", team),
-				zap.String("schedule", schedule.Name),
-				zap.Time("time", askTime),
-			)
-			return c.JSON(http.StatusOK, schedule.Members)
-		}
+	if !found {
+		return c.JSON(http.StatusNotFound, ErrorResponse{Error: "no oncall member found for the given time"})
 	}
 
-	return c.JSON(http.StatusNotFound, ErrorResponse{Error: "no schedule found for the given time"})
+	h.logger.Info("oncall member found",
+		zap.String("team", team),
+		zap.String("oncall", oncall),
+		zap.Time("time", askTime),
+	)
+
+	// Return single oncall member instead of array
+	return c.JSON(http.StatusOK, map[string]string{"oncall": oncall})
 }
 
 // validateRequest validates the schedule creation request.
@@ -181,14 +171,4 @@ func parseWeekday(day string) (time.Weekday, error) {
 		}
 	}
 	return time.Sunday, fmt.Errorf("invalid weekday: %s", day)
-}
-
-// contains checks if a slice contains a weekday.
-func contains(days []time.Weekday, day time.Weekday) bool {
-	for _, d := range days {
-		if d == day {
-			return true
-		}
-	}
-	return false
 }

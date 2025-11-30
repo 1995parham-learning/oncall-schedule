@@ -24,4 +24,21 @@ go.work.sum
 # env file
 .env
 
+# Build artifacts
 /oncall-schedule
+/bin/
+
+# Test coverage
+coverage.out
+*.coverprofile
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
