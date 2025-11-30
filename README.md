@@ -86,37 +86,52 @@ Note: Use double underscores (`__`) to represent nested configuration keys.
 
 ## Quick Start
 
+### Prerequisites
+
+Install [just](https://github.com/casey/just) command runner:
+
+```bash
+# macOS
+brew install just
+
+# Linux
+curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
+# Or with cargo
+cargo install just
+```
+
 ### Option 1: With PostgreSQL (Recommended for Production)
 
 1. Start PostgreSQL using Docker Compose:
 
 ```bash
-make db-up
+just db-up
 ```
 
 Or manually:
 
 ```bash
-docker-compose up -d postgres
+docker compose up -d postgres
 ```
 
 2. Build and run the application:
 
 ```bash
-make build
+just build
 ./bin/oncall-schedule
 ```
 
 Or run directly:
 
 ```bash
-make run
+just run
 ```
 
 ### Option 2: With In-Memory Storage (Development/Testing)
 
 ```bash
-make run-memory
+just run-memory
 ```
 
 Or:
@@ -127,19 +142,44 @@ ONCALL_USE_DATABASE=false go run .
 
 The API will be available at `http://localhost:1373` (or your configured address/port).
 
-### Available Make Commands
+### Available Just Commands
+
+Run `just` or `just --list` to see all available commands:
 
 ```bash
-make help          # Display all available commands
-make build         # Build the application
-make run           # Run with PostgreSQL
-make run-memory    # Run with in-memory storage
-make test          # Run tests with coverage
-make db-up         # Start PostgreSQL
-make db-down       # Stop PostgreSQL
-make db-reset      # Reset database (deletes all data)
-make lint          # Run linter
-make clean         # Clean build artifacts
+# Essential Commands
+just build              # Build the application
+just run                # Run with PostgreSQL
+just run-memory         # Run with in-memory storage
+just test               # Run tests with coverage
+just test-coverage      # Run tests and open coverage in browser
+
+# Database Commands
+just db-up              # Start PostgreSQL
+just db-down            # Stop PostgreSQL
+just db-reset           # Reset database (deletes all data)
+just db-shell           # Connect to PostgreSQL with psql
+just db-logs            # View PostgreSQL logs
+
+# Development Commands
+just dev                # Watch for changes and auto-reload
+just lint               # Run linter
+just lint-fix           # Fix linting issues automatically
+just fmt                # Format code
+just tidy               # Tidy dependencies
+
+# Docker Commands
+just docker-build       # Build Docker image
+just docker-up          # Start all services
+just docker-down        # Stop all services
+just docker-logs        # View all service logs
+
+# Utilities
+just clean              # Clean build artifacts
+just clean-all          # Clean everything including Docker volumes
+just ci                 # Run full CI pipeline locally
+just stats              # Show project statistics
+just install-tools      # Install development tools
 ```
 
 ## API Endpoints
@@ -283,8 +323,8 @@ The PostgreSQL storage implementation properly tracks rotation state, ensuring t
 oncall-schedule/
 ├── main.go                           # Application entry point with FX dependency injection
 ├── config.yaml                       # Default configuration
-├── docker-compose.yml                # PostgreSQL setup for local development
-├── Makefile                          # Build and development commands
+├── docker-compose.yml                # Modern Docker Compose setup for PostgreSQL
+├── justfile                          # Just command runner recipes
 ├── migrations/                       # Database migration files
 │   ├── 000001_initial_schema.up.sql
 │   └── 000001_initial_schema.down.sql
@@ -294,9 +334,11 @@ oncall-schedule/
     ├── db/                           # Database connection and migrations
     │   └── db.go
     ├── handler/                      # HTTP request handlers
-    │   └── handler.go
+    │   ├── handler.go
+    │   └── handler_test.go
     └── storage/                      # Storage interface and implementations
         ├── storage.go                # Interface and in-memory implementation
+        ├── storage_test.go
         └── postgres.go               # PostgreSQL implementation
 ```
 
@@ -326,10 +368,11 @@ This project is on a path to become a production-ready oncall platform. Here's w
 - [x] PostgreSQL database layer with migrations
 - [x] Proper rotation tracking with state management
 - [x] User and team management (database schema)
-- [x] Docker Compose for local development
-- [x] Makefile for common tasks
+- [x] Modern Docker Compose setup (v2 specification)
+- [x] Just command runner with comprehensive recipes
 - [x] Configuration management
 - [x] Structured logging
+- [x] Unit tests (93.7% coverage on handler, 100% on storage)
 
 ### 🚧 Phase 2: Notifications & Alerting (Next)
 
