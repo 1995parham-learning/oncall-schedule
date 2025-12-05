@@ -105,7 +105,15 @@ func runMigrations(connString, migrationsPath string, log *zap.Logger) error {
 		return fmt.Errorf("failed to create migrator: %w", err)
 	}
 
-	defer m.Close()
+	defer func() {
+		srcErr, dbErr := m.Close()
+		if srcErr != nil {
+			log.Warn("failed to close migration source", zap.Error(srcErr))
+		}
+		if dbErr != nil {
+			log.Warn("failed to close migration database", zap.Error(dbErr))
+		}
+	}()
 
 	// Run migrations up
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {

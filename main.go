@@ -106,6 +106,7 @@ func newEchoServer(logger *zap.Logger) *echo.Echo {
 
 // registerRoutes registers all HTTP routes.
 func registerRoutes(e *echo.Echo, h *handler.Handler) {
+	e.GET("/health", h.Health)
 	e.POST("/schedule", h.CreateSchedule)
 	e.GET("/schedule", h.GetSchedule)
 }

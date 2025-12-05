@@ -163,6 +163,13 @@ func (h *Handler) validateRequest(req *Request) error {
 	return nil
 }
 
+// Health handles health check requests.
+func (h *Handler) Health(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]string{
+		"status": "healthy",
+	})
+}
+
 // parseWeekday parses a weekday string into time.Weekday.
 func parseWeekday(day string) (time.Weekday, error) {
 	for wd := time.Sunday; wd <= time.Saturday; wd++ {

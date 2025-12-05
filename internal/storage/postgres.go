@@ -33,7 +33,11 @@ func (s *PostgresStorage) AddSchedule(teamName string, schedule Schedule) error 
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
+			s.log.Debug("transaction rollback returned error (may be already committed)", zap.Error(rbErr))
+		}
+	}()
 
 	// Get or create team
 	var teamID int
